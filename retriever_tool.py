@@ -34,24 +34,29 @@ def search_documents(query: str) -> str:
     Use this for questions about specific documents Dina has uploaded — NOT for current events,
     news, or general knowledge questions that don't reference a specific stored document."""
 
-    rewritten = _rewrite_query(query)
+    try:
+        rewritten = _rewrite_query(query)
 
-    retriever = _vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 15}
-    )
-    candidates = retriever.invoke(rewritten)
+        retriever = _vectorstore.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 15}
+        )
+        candidates = retriever.invoke(rewritten)
 
-    if not candidates:
-        return "No relevant documents found in the document store."
+        if not candidates:
+            return "No relevant documents found in the document store."
 
-    pairs = [[query, chunk.page_content] for chunk in candidates]
-    scores = _reranker.predict(pairs)
-    scored = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
+        pairs = [[query, chunk.page_content] for chunk in candidates]
+        scores = _reranker.predict(pairs)
+        scored = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
 
-    relevant = [chunk for chunk, score in scored if score > -3.0][:5]
+        relevant = [chunk for chunk, score in scored if score > -3.0][:5]
 
-    if not relevant:
-        return "No sufficiently relevant document content found for this query."
+        if not relevant:
+            return "No sufficiently relevant document content found for this query."
 
-    return "\n\n---\n\n".join(chunk.page_content for chunk in relevant)
+        return "\n\n---\n\n".join(chunk.page_content for chunk in relevant)
+
+    except Exception as e:
+        print(f"⚠️ search_documents failed internally: {e}")
+        return f"Document search encountered an error and could not complete: {e}"
