@@ -103,7 +103,7 @@ Response:"""
         print(f"⚠️ Planning step failed: {e}. Proceeding without a plan.")
         return {"plan": "No plan available due to an error — proceeding reactively."}
 
-from groq import BadRequestError, RateLimitError, APIConnectionError
+from groq import BadRequestError, RateLimitError, APIConnectionError, APIError
 import time
 
 def agent_node(state: AgentState):
@@ -143,8 +143,8 @@ def agent_node(state: AgentState):
         time.sleep(1)
         return agent_node({**state, "tool_retry_count": retry_count + 1})
 
-    except BadRequestError as e:
-        if "tool_use_failed" not in str(e):
+    except (BadRequestError, APIError) as e:
+        if "tool_use_failed" not in str(e) and "Failed to call a function" not in str(e):
             raise
 
         if retry_count >= max_retries:
@@ -170,8 +170,8 @@ def agent_node(state: AgentState):
         ))
         return {"messages": [fallback], "tool_retry_count": 0}
 
-tool_node = ToolNode([tavily_search, search_documents])
 
+tool_node = ToolNode([tavily_search, search_documents])
 
 def should_continue(state: AgentState):
     last_message = state["messages"][-1]

@@ -206,6 +206,7 @@ Raw, unfiltered search results — including low-relevance noise — were someti
 - **Unfiltered search results get cited as more specific than they are** — even without inventing facts, an LLM can present low-relevance results as directly relevant unless they're filtered out first; this is a distinct problem from hallucination and needs a different fix (relevance thresholds, not better prompting).
 - **Planning is advisory, not enforced, in this design** — a planner node gives the reactive loop useful upfront structure, but the graph doesn't force the agent to complete plan steps in order; a stricter architecture would track plan-step completion explicitly in state.
 
+- **Streaming exercises a different code path than normal invocation, and errors can behave differently as a result.** Adding FastAPI streaming revealed that the same malformed-tool-call failure raised a different exception type (APIError vs. BadRequestError) depending on whether the graph was invoked normally or streamed — silently bypassing my existing retry logic until I broadened the exception catch to handle both. A good reminder that testing one code path doesn't guarantee coverage of another, even for conceptually identical failures.
 ---
 
 ## Status & Next Steps
