@@ -11,6 +11,7 @@ CHROMA_DIR = "./chroma_db"
 
 _embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
 _vectorstore = Chroma(persist_directory=CHROMA_DIR, embedding_function=_embeddings)
+vectorstore = _vectorstore
 _rewrite_llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
 
 

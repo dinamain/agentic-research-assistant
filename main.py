@@ -28,6 +28,8 @@ def root():
 
 
 
+from retriever_tool import vectorstore as shared_vectorstore
+
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
     suffix = os.path.splitext(file.filename)[1]
@@ -36,13 +38,11 @@ async def upload_pdf(file: UploadFile = File(...)):
         temp_path = tmp.name
 
     try:
-        ingest_pdf(temp_path, original_filename=file.filename)
+        ingest_pdf(temp_path, vectorstore=shared_vectorstore, original_filename=file.filename)
     finally:
         os.remove(temp_path)
 
     return {"message": f"{file.filename} ingested successfully"}
-
-
 class ChatRequest(BaseModel):
     message: str
     thread_id: str
