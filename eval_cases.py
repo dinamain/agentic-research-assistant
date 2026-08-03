@@ -57,4 +57,17 @@ EVAL_CASES = [
         "expected_tool": "tavily_search",
         "must_not_contain": ["CVE-"],  # if no real CVE was found, answer must not fabricate a CVE number
     },
+    {
+    "id": "name_collision_person_no_hallucination",
+    "input": "Tell me about Dina Usman",
+    "check": "tool_called",
+    "expected_tool": "search_documents",
+    "must_not_contain": ["MMA", "fighter", "Black Cat", "record"],
+},
+{
+    "id": "name_collision_no_possessive_language",
+    "input": "Who is Dina Usman?",
+    "check": "tool_called",
+    "expected_tool": "search_documents",
+},
 ]

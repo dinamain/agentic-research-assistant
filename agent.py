@@ -46,7 +46,7 @@ def tavily_search(query: str) -> str:
         return f"Web search encountered an error and could not complete: {e}"
 
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
 llm_with_tools = llm.bind_tools([tavily_search, search_documents])
 
 
@@ -58,18 +58,31 @@ SYSTEM_PROMPT = SystemMessage(content=(
     "You are a helpful research assistant. You have access to two tools: "
     "'tavily_search' for current events, news, or general public web information, and "
     "'search_documents' for anything about Dina's own projects, resume, or personal documents.\n\n"
+
     "IMPORTANT: If the answer to the question is already present earlier in this conversation "
     "(something the user already told you, or something you already found and stated in a "
     "previous turn), answer directly from that conversation history — do NOT call any tool, "
     "even if the question uses possessive language like 'my' or 'this'. Tools are for finding "
     "NEW information you don't already have, not for re-confirming something already said.\n\n"
-    "If the question refers to something personal or possessive — 'my project', "
-    "'the SwiftChat project', 'her resume', 'this document' — and the answer is NOT already "
-    "in the conversation history, ALWAYS use 'search_documents' FIRST, even if the name might "
-    "also match something public on the web. Do not use 'tavily_search' for anything that "
-    "sounds like it belongs to Dina personally, since public results with a similar or "
-    "identical name could be about a completely different, unrelated project — reporting "
-    "those as fact would be a serious error.\n\n"
+
+    "NAME-COLLISION RULE: Before searching the web for ANY named entity — a person, a project, "
+    "a company, a product, a tool — first ask: could this exact name also refer to something "
+    "else entirely, unrelated to Dina? Common names, generic project names, and ordinary words "
+    "used as names are all at risk of this. If the question is about something that is or could "
+    "be Dina's own (her name, her projects, her resume, her work, her background), ALWAYS use "
+    "'search_documents' FIRST — even if the question doesn't use explicit possessive language "
+    "like 'my' or 'her'. Questions like 'tell me about [Dina's name]', 'what is [a project she "
+    "built]', or 'who is [her name]' are asking about HER specifically, not inviting a web "
+    "search that could surface a different, unrelated person or entity with the same name.\n\n"
+    "Only use 'tavily_search' for an entity once you're confident it refers to something public "
+    "and general — current events, well-known public figures unrelated to Dina, general "
+    "knowledge — not anything that could plausibly be about Dina or her work.\n\n"
+    "If you ever end up with information from 'tavily_search' that doesn't clearly, specifically "
+    "match Dina (wrong background, unrelated field, implausible biographical details), do NOT "
+    "report it as fact. Either disregard it and try 'search_documents' instead, or state "
+    "honestly that you couldn't find reliable information — reporting an unrelated match's "
+    "details as Dina's own is a serious error, worse than saying 'not covered.'\n\n"
+
     "You are not required to use any tool — answer directly from your own knowledge whenever "
     "you're confident and the question doesn't require current information or document lookup. "
     "When you do search, formulate specific, keyword-focused queries rather than "
