@@ -13,9 +13,9 @@ def clean_text(text: str) -> str:
     return text
 
 
-def ingest_pdf(pdf_path: str, vectorstore=None):
-    filename = os.path.basename(pdf_path)
-
+def ingest_pdf(pdf_path: str, vectorstore=None, original_filename: str = None):
+    filename = original_filename or os.path.basename(pdf_path)
+    
     if vectorstore is None:
         embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
         vectorstore = Chroma(persist_directory=CHROMA_DIR, embedding_function=embeddings)
@@ -42,5 +42,9 @@ def ingest_pdf(pdf_path: str, vectorstore=None):
         chunk.page_content = header + chunk.page_content
 
     print(f"Created {len(chunks)} chunks")
+
+    if not chunks:
+        raise ValueError(f"No usable content extracted from {filename} — the file may be corrupted or not a valid PDF.")
+
     vectorstore.add_documents(chunks)
     print(f"Done! {filename} ingested successfully.")

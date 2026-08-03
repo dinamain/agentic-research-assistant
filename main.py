@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from agent import app as agent_app
-
+from fastapi import UploadFile, File
+import shutil
+import os
+from ingest import ingest_pdf
+import tempfile
 app = FastAPI()
 
 app.add_middleware(
@@ -21,6 +25,22 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "Agentic Research Assistant API is running"}
+
+
+
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+    suffix = os.path.splitext(file.filename)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        temp_path = tmp.name
+
+    try:
+        ingest_pdf(temp_path, original_filename=file.filename)
+    finally:
+        os.remove(temp_path)
+
+    return {"message": f"{file.filename} ingested successfully"}
 
 
 class ChatRequest(BaseModel):
