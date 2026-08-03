@@ -18,7 +18,24 @@ from retriever_tool import search_documents
 load_dotenv()
 
 _raw_tavily = TavilySearch(max_results=5)
+import re
+import json
 
+def try_recover_xml_wrapped_tool_call(failed_generation: str):
+    """Groq's llama-3.3-70b-versatile sometimes wraps a valid tool call in
+    XML-like <function=name {...}</function> tags instead of pure JSON,
+    which the API rejects. This is a known Groq-reported quirk, not a
+    reasoning error — the tool name and arguments inside are usually correct.
+    Try to extract and reconstruct a usable tool call from that wrapper."""
+    match = re.match(r'<function=(\w+)\s+(\{.*?\})\s*</function>', failed_generation.strip())
+    if not match:
+        return None
+    tool_name, args_json = match.groups()
+    try:
+        args = json.loads(args_json)
+        return {"name": tool_name, "args": args}
+    except json.JSONDecodeError:
+        return None
 
 @tool
 def tavily_search(query: str) -> str:
@@ -82,6 +99,13 @@ SYSTEM_PROMPT = SystemMessage(content=(
     "report it as fact. Either disregard it and try 'search_documents' instead, or state "
     "honestly that you couldn't find reliable information — reporting an unrelated match's "
     "details as Dina's own is a serious error, worse than saying 'not covered.'\n\n"
+
+    "If 'search_documents' already provides a complete, sufficient answer about Dina, do not "
+    "also search the web or include information about a different, similarly-named person in "
+    "the same response — even with a disclaimer distinguishing the two. A different person's "
+    "biography does not belong in an answer about Dina, regardless of how clearly it's labeled "
+    "as belonging to someone else. Once you have a sufficient answer from her own documents, "
+    "stop there.\n\n"
 
     "You are not required to use any tool — answer directly from your own knowledge whenever "
     "you're confident and the question doesn't require current information or document lookup. "
@@ -157,8 +181,22 @@ def agent_node(state: AgentState):
         return agent_node({**state, "tool_retry_count": retry_count + 1})
 
     except (BadRequestError, APIError) as e:
+        error_body = getattr(e, 'body', {}) or {}
+        failed_gen = error_body.get('failed_generation', '') if isinstance(error_body, dict) else ''
+
+        recovered = try_recover_xml_wrapped_tool_call(failed_gen) if failed_gen else None
+        if recovered:
+            print(f"✅ Recovered malformed tool call via XML-wrapper parsing: {recovered}")
+            tool_call_id = f"recovered_{retry_count}"
+            recovered_msg = AIMessage(
+                content="",
+                tool_calls=[{"name": recovered["name"], "args": recovered["args"], "id": tool_call_id}]
+            )
+            return {"messages": [recovered_msg], "tool_retry_count": 0}
+
         if "tool_use_failed" not in str(e) and "Failed to call a function" not in str(e):
             raise
+        
 
         if retry_count >= max_retries:
             print(f"⚠️ Gave up after {max_retries} malformed tool-call retries.")
