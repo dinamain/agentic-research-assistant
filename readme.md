@@ -25,42 +25,43 @@ This agent:
 
 ## Architecture
 
-
+```
 START
-↓
+  ↓
 Planner node — LLM classifies the input:
-├─ Conversational (no research/tools needed) → outputs exact sentinel "NO_PLAN_NEEDED"
-└─ Genuine task → outputs a short numbered plan (advisory context for the agent, not enforced step-by-step)
-↓
+  ├─ Conversational (no research/tools needed) → outputs exact sentinel "NO_PLAN_NEEDED"
+  └─ Genuine task → outputs a short numbered plan (advisory context for the agent, not enforced step-by-step)
+  ↓
 Agent node ←──────────────────────────────────────────┐
-│ │
-├─ If plan == "NO_PLAN_NEEDED": │
-│ → plain llm (no tools bound) responds directly │
-│ conversationally → END │
-│ │
-└─ Otherwise, llm_with_tools decides: │
-- Answer directly if already confident, or if │
-the answer is already present earlier in the │
-conversation history (checked BEFORE routing │
-rules below, even for possessive questions) │
-- Call search_documents (personal/possessive │
-questions — "my project", "her resume" — when │
-the answer isn't already in conversation history) │
-- Call tavily_search (current events, public info) │
-- Call both in parallel if the plan shows they're │
-independent │
-│ │
-├─ No tool needed → END │
-└─ Tool call requested │
-↓ │
-Tools node │
-├─ search_documents (ChromaDB retriever: query │
-│ rewrite → retrieve k=5 → vector-similarity │
-│ distance filter, threshold 0.87) │
-└─ tavily_search (web search: Tavily → │
-relevance-score filter (>0.3) → top 3) │
-↓ │
-back to Agent node ────────────────────────────────────┘
+  │                                                    │
+  ├─ If plan == "NO_PLAN_NEEDED":                      │
+  │     → plain llm (no tools bound) responds directly │
+  │     conversationally → END                         │
+  │                                                     │
+  └─ Otherwise, llm_with_tools decides:                 │
+       - Answer directly if already confident, or if    │
+         the answer is already present earlier in the   │
+         conversation history (checked BEFORE routing    │
+         rules below, even for possessive questions)     │
+       - Call search_documents (personal/possessive       │
+         questions — "my project", "her resume" — when    │
+         the answer isn't already in conversation history) │
+       - Call tavily_search (current events, public info)   │
+       - Call both in parallel if the plan shows they're      │
+         independent                                           │
+         │                                                     │
+         ├─ No tool needed → END                                │
+         └─ Tool call requested                                 │
+               ↓                                                │
+         Tools node                                             │
+           ├─ search_documents (ChromaDB retriever: query        │
+           │     rewrite → retrieve k=5 → vector-similarity       │
+           │     distance filter, threshold 0.87)                 │
+           └─ tavily_search (web search: Tavily →               │
+                 relevance-score filter (>0.3) → top 3)         │
+               ↓                                                │
+         back to Agent node ────────────────────────────────────┘
+```
 
 **Error handling** (wraps the LLM call inside Agent node):
 - `RateLimitError` / `APIConnectionError` → capped retry (2), exponential/short backoff, graceful fallback message on exhaustion
@@ -103,16 +104,18 @@ back to Agent node ────────────────────�
 
 ## Project Structure
 
+```
 agentic-research-assistant/
-├── agent.py # State, graph, planner, agent node, retry logic, tools binding
-├── retriever_tool.py # search_documents tool: rewrite → retrieve → relevance filter
-├── main.py # FastAPI app with streaming /chat/stream endpoint
-├── ingest.py # PDF ingestion into this project's own ChromaDB (self-contained)
-├── run_ingest.py # Script to ingest a document
-├── eval_cases.py # Eval harness test cases
-├── eval_runner.py # Eval harness runner
+├── agent.py            # State, graph, planner, agent node, retry logic, tools binding
+├── retriever_tool.py    # search_documents tool: rewrite → retrieve → relevance filter
+├── main.py              # FastAPI app with streaming /chat/stream endpoint
+├── ingest.py            # PDF ingestion into this project's own ChromaDB (self-contained)
+├── run_ingest.py         # Script to ingest a document
+├── eval_cases.py         # Eval harness test cases
+├── eval_runner.py        # Eval harness runner
 ├── .gitignore
 └── README.md
+```
 
 This project keeps its own ChromaDB and ingestion pipeline, deliberately separate from the RAG Document Q&A project — each project is independently runnable and deployable, with no cross-project file-path dependency.
 
